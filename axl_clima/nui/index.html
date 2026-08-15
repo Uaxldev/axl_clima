@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>axl_clima</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+
+<div id="painel" class="glass fechado">
+
+  <div class="cab">
+    <h1>
+      <span class="pino">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff"
+             stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/>
+        </svg>
+      </span>
+      Clima &amp; Tempo
+    </h1>
+    <p>Painel da cidade</p>
+    <span class="dica-esc" id="btEsc">ESC</span>
+  </div>
+
+  <div class="palco">
+
+    <!-- ============ COLUNA 1 — TEMPO ============ -->
+    <div class="col">
+
+      <div class="vitrine">
+        <div class="relogio" id="relogio">--:--</div>
+        <div class="lado">
+          <div class="agora" id="agora">—</div>
+          <div class="selos">
+            <span class="selo" id="seloTempo">—</span>
+            <span class="selo" id="seloClima">—</span>
+            <span class="selo" id="seloApagao">—</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="bloco">
+        <div class="rot">Horário</div>
+        <div class="campo">
+          <div class="lin"><span class="nome">Hora</span><span class="val" id="vHora">—</span></div>
+          <input type="range" id="sHora" min="0" max="23" value="6">
+        </div>
+        <div class="campo">
+          <div class="lin"><span class="nome">Minuto</span><span class="val" id="vMin">—</span></div>
+          <input type="range" id="sMin" min="0" max="59" value="20">
+        </div>
+      </div>
+
+      <div class="bloco">
+        <div class="rot">Horários Predefinidos</div>
+        <div class="atalhos">
+          <div class="at" data-h="6"><span class="h">06:00</span><span class="q">Amanhecer</span></div>
+          <div class="at" data-h="12"><span class="h">12:00</span><span class="q">Meio-dia</span></div>
+          <div class="at" data-h="19"><span class="h">19:00</span><span class="q">Pôr do sol</span></div>
+          <div class="at" data-h="3"><span class="h">03:00</span><span class="q">Madrugada</span></div>
+        </div>
+      </div>
+
+      <div class="div"></div>
+
+      <div class="bloco">
+        <div class="rot">Passagem do tempo</div>
+        <div class="sw" id="swCongela">
+          <span class="nome">Relógio correndo</span><span class="cx"></span>
+        </div>
+        <div class="campo" id="cpVel">
+          <div class="lin"><span class="nome">Um minuto a cada</span><span class="val" id="vVel">—</span></div>
+          <input type="range" id="sVel" min="1" max="60" value="5">
+        </div>
+        <div class="obs" id="obsVel">&nbsp;</div>
+      </div>
+
+      <div class="div"></div>
+
+      <div class="bloco">
+        <div class="rot">Apagão</div>
+        <div class="sw perigo" id="swApagao">
+          <span class="nome">Cortar a luz da cidade</span><span class="cx"></span>
+        </div>
+        <div class="sw filho off" id="swApagaoCarros">
+          <span class="nome">Apagar farol dos carros também</span><span class="cx"></span>
+        </div>
+        <div class="obs">Deixe a cidade um breu, funciona melhor de noite</div>
+      </div>
+
+    </div>
+
+    <!-- ============ COLUNA 2 — CLIMA ============ -->
+    <div class="col">
+
+      <div class="bloco">
+        <div class="rot"><span>Clima agora</span><span id="rotClima">—</span></div>
+        <!-- Montada pelo script a partir do Config.climas do Lua: acrescentar
+             clima no config.lua basta, sem mexer aqui. -->
+        <div class="climas" id="climas"></div>
+      </div>
+
+      <div class="div"></div>
+
+      <div class="bloco" id="blRot">
+        <div class="rot">Rotação automática</div>
+        <div class="sw" id="swRot">
+          <span class="nome">Sortear clima de tempos em tempos</span><span class="cx"></span>
+        </div>
+        <div class="campo">
+          <div class="lin"><span class="nome">Intervalo de</span><span class="val" id="vInt">—</span></div>
+          <input type="range" id="sInt" min="1" max="60" value="10">
+        </div>
+        <div class="obs">Entram no sorteio:</div>
+        <div class="fichas" id="fichas"></div>
+        <div class="obs">Intervalo em minutos <b>reais</b></div>
+      </div>
+
+      <div class="div"></div>
+
+      <div class="bloco">
+        <div class="rot">Raios</div>
+        <div class="bt acao" id="btRaio">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+               stroke-linecap="round" stroke-linejoin="round">
+            <path d="M13 2 4 14h6l-1 8 9-12h-6l1-8z"/>
+          </svg>
+          Soltar raio
+        </div>
+        <div class="obs"> Solte raios pela cidade</div>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="faixa">
+    <div class="grupo">
+      <div class="rot">Padrão da cidade</div>
+      <div class="pad-val" id="padVal">—</div>
+    </div>
+
+    <div class="grupo">
+      <div class="rot">&nbsp;</div>
+      <div class="bt mini" id="btGravaPadrao">Gravar clima atual</div>
+    </div>
+
+    <div class="grupo">
+      <div class="rot">Ao reiniciar o servidor</div>
+      <div class="seg" id="segReinicio">
+        <span class="op" data-v="padrao">Voltar ao padrão</span>
+        <span class="op" data-v="manter">Manter o atual</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="rodape">
+    <span class="aviso" id="aviso">&nbsp;</span>
+    <div class="bt" id="btPadrao">Voltar ao padrão</div>
+    <div class="bt mestre" id="btAplicar">Aplicar na cidade</div>
+  </div>
+</div>
+
+<script src="script.js"></script>
+</body>
+</html>

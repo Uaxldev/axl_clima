@@ -1,0 +1,308 @@
+/* axl_clima — NUI. Painel unico, centralizado, COM zoom.
+   O desenho aprovado esta em ../preview-v1.html; o que muda aqui e so o
+   `body` (transparente e sem clique) e o painel nascer fechado. */
+
+:root {
+  --brand: #71368a; --brand-lit: #b06fd0; --brand-deep: #4a2260;
+  --ink: #eceaf2; --ink-2: #9b96ab; --ink-3: #5f5a70;
+  --surf-0: rgba(255,255,255,.028);
+  --line: rgba(255,255,255,.075);
+  --line-lit: rgba(176,111,208,.38);
+  --ok: #4ade80; --alerta: #e8c14a; --erro: #f4757a;
+
+  /* Bloco de escala copiado do axl_inventoryv2 (convencao da base):
+     --uh vem da altura, --uw e teto pela largura, vale o menor. */
+  --uh: .70; --uw: 1.9;
+  --ui: min(var(--uh), var(--uw));
+}
+
+/* Altura = resolucao vertical do jogo. Base do desenho e 1920x1080 (--ui: 1). */
+@media (min-height:  761px) { :root { --uh:  .76; } }   /* 1366x768  */
+@media (min-height:  801px) { :root { --uh:  .80; } }   /* 1280x800  */
+@media (min-height:  861px) { :root { --uh:  .86; } }   /* 1600x900  */
+@media (min-height: 1001px) { :root { --uh:  .95; } }   /* 1680x1050 */
+@media (min-height: 1060px) { :root { --uh: 1;    } }   /* 1920x1080 · 2560x1080 */
+@media (min-height: 1180px) { :root { --uh: 1.10; } }   /* 1920x1200 */
+@media (min-height: 1400px) { :root { --uh: 1.32; } }   /* 2560x1440 · 3440x1440 */
+@media (min-height: 1560px) { :root { --uh: 1.45; } }   /* 2880x1620 */
+@media (min-height: 2100px) { :root { --uh: 1.80; } }   /* 3840x2160 */
+
+/* Teto pela largura: segura a NUI dentro da tela em 4:3, 16:10 e janela pequena. */
+@media (max-width: 2400px) { :root { --uw: 1.55; } }
+@media (max-width: 1900px) { :root { --uw: 1.20; } }
+@media (max-width: 1650px) { :root { --uw: 1;    } }
+@media (max-width: 1450px) { :root { --uw:  .86; } }
+@media (max-width: 1300px) { :root { --uw:  .78; } }
+@media (max-width: 1150px) { :root { --uw:  .68; } }
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+/* `pointer-events: none` no body deixa o clique atravessar e chegar no jogo:
+   sem ele a pagina vira uma placa de vidro na frente do mundo. */
+body {
+  height: 100vh; overflow: hidden; user-select: none;
+  background: transparent; pointer-events: none;
+  color: var(--ink);
+  font-family: Inter, Montserrat, "Segoe UI", system-ui, sans-serif;
+  font-size: 14px;
+  display: grid; place-items: center;
+}
+
+/* ---------- painel ---------- */
+#painel {
+  zoom: var(--ui);
+  width: 660px;
+  /* `zoom` nao escala `vh`: sem dividir, 92vh virava 464px reais em 720p e o
+     painel se cortava e rolava sobrando tela livre. */
+  max-height: calc(92vh / var(--ui));
+  display: flex; flex-direction: column;
+  /* volta a receber clique: o body inteiro esta com pointer-events none */
+  pointer-events: auto;
+  /* Entrada so em fade: deslizar dentro de um `zoom` fracionado faz cada
+     quadro cair num subpixel diferente e o texto chega tremendo.
+     `backface-visibility` fixa a camada, senao o fim do fade re-rasteriza. */
+  animation: entra .16s ease both;
+  backface-visibility: hidden;
+}
+@keyframes entra { from { opacity: 0; } }
+#painel.fechado { display: none; }
+
+.glass {
+  background: linear-gradient(158deg, rgba(14,11,20,.9), rgba(10,8,15,.94));
+  border: 1px solid var(--line); border-radius: 20px;
+  box-shadow: 0 28px 70px rgba(0,0,0,.6), inset 0 1px 0 rgba(255,255,255,.05);
+}
+
+/* ---------- cabecalho ----------
+   `padding-right` folgado: o ESC e `absolute`, sai do fluxo, e sem a folga
+   ele cai por cima do que estiver na ponta da barra. */
+.cab { position: relative; padding: 13px 48px 11px 16px; border-bottom: 1px solid var(--line); }
+.cab h1 { font-size: 15px; font-weight: 800; display: flex; align-items: center; gap: 8px; }
+.cab h1 .pino {
+  width: 23px; height: 23px; border-radius: 8px; flex-shrink: 0;
+  background: linear-gradient(150deg, var(--brand), var(--brand-deep));
+  display: grid; place-items: center; box-shadow: 0 0 0 1px rgba(255,255,255,.09);
+}
+.cab p { font-size: 9px; letter-spacing: .13em; text-transform: uppercase;
+         color: var(--ink-3); font-weight: 700; margin-top: 5px; }
+
+/* Fechamento padrao da base: fecha no clique e na tecla. Anima COR, nunca
+   opacity — opacity promove o span a camada propria e o re-raster faz o
+   texto ao lado tremer sob `zoom` fracionado. */
+.dica-esc {
+  position: absolute; top: 12px; right: 15px;
+  font-size: 9px; font-weight: 700; letter-spacing: .16em;
+  color: #4a4655; cursor: pointer; transition: color .14s;
+}
+.dica-esc:hover { color: var(--ink-2); }
+
+/* ---------- corpo em duas colunas ----------
+   Scroll no PALCO: sob `zoom` fracionado as colunas fecham com 1px de
+   diferenca e a mais alta acendia uma barra sozinha, sem conteudo sobrando. */
+.palco { display: flex; gap: 0; overflow-y: auto; }
+.palco::-webkit-scrollbar { width: 5px; }
+.palco::-webkit-scrollbar-thumb { background: var(--line-lit); border-radius: 3px; }
+.col { flex: 1; padding: 13px 16px; display: flex; flex-direction: column; gap: 13px; }
+.col + .col { border-left: 1px solid var(--line); }
+@media (max-width: 1150px) { .palco { flex-wrap: wrap; } .col + .col { border-left: 0; } }
+
+.bloco { display: flex; flex-direction: column; gap: 7px; }
+.rot { font-size: 9px; letter-spacing: .15em; text-transform: uppercase;
+       color: var(--ink-3); font-weight: 800;
+       display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.div { height: 1px; background: var(--line); }
+.obs { font-size: 10px; line-height: 1.45; color: var(--ink-3); }
+
+/* ---------- vitrine: o estado agora ----------
+   Le, nao configura. Existe pra o admin conferir o que a cidade esta vendo
+   sem ter que sair do painel e olhar o ceu. */
+.vitrine {
+  border-radius: 14px; padding: 12px 14px;
+  background: linear-gradient(150deg, rgba(176,111,208,.13), rgba(176,111,208,.03));
+  box-shadow: inset 0 0 0 1px var(--line-lit);
+  display: flex; align-items: center; gap: 14px;
+}
+.relogio { font-size: 34px; font-weight: 800; line-height: 1;
+           font-variant-numeric: tabular-nums; letter-spacing: -.02em; }
+.vitrine .lado { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+.vitrine .agora { font-size: 11px; font-weight: 700; color: var(--ink-2);
+                  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.selos { display: flex; gap: 5px; flex-wrap: wrap; }
+.selo { font-size: 8px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase;
+        padding: 3px 7px; border-radius: 6px;
+        color: var(--ink-3); box-shadow: inset 0 0 0 1px var(--line); }
+.selo.on   { color: var(--ok);     box-shadow: inset 0 0 0 1px rgba(74,222,128,.4); }
+.selo.trav { color: var(--alerta); box-shadow: inset 0 0 0 1px rgba(232,193,74,.45); }
+.selo.perigo { color: var(--erro); box-shadow: inset 0 0 0 1px rgba(244,117,122,.45); }
+
+/* ---------- sliders ---------- */
+.campo { display: flex; flex-direction: column; gap: 1px; }
+.lin { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.lin .nome { font-size: 12px; font-weight: 600; color: var(--ink-2); }
+.lin .val { font-size: 12px; font-weight: 800; font-variant-numeric: tabular-nums;
+            color: var(--ink); min-width: 46px; text-align: right; }
+input[type=range] {
+  -webkit-appearance: none; appearance: none;
+  width: 100%; height: 3px; border-radius: 2px; margin: 4px 0 0;
+  background: rgba(255,255,255,.11); cursor: pointer; outline: none;
+}
+input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none;
+  width: 13px; height: 13px; border-radius: 50%;
+  background: var(--brand-lit); cursor: pointer;
+  box-shadow: 0 0 0 3px rgba(176,111,208,.2); transition: background .12s;
+}
+input[type=range]:active::-webkit-slider-thumb { background: #fff; }
+/* Bloco que o travamento desligou: apaga mas NAO some, senao o painel pula
+   de altura toda vez que se liga um cadeado. */
+.campo.off, .bloco.off { opacity: .3; pointer-events: none; }
+
+/* ---------- atalhos de horario ---------- */
+.atalhos { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.at { padding: 7px 4px; border-radius: 10px; cursor: pointer; text-align: center;
+      background: var(--surf-0); border: 1px solid var(--line);
+      transition: border-color .14s, color .14s, background .14s; }
+.at:hover { border-color: var(--line-lit); }
+.at .h { display: block; font-size: 12px; font-weight: 800;
+         font-variant-numeric: tabular-nums; color: var(--ink); }
+.at .q { display: block; font-size: 8px; font-weight: 700; letter-spacing: .09em;
+         text-transform: uppercase; color: var(--ink-3); margin-top: 2px; }
+
+/* ---------- grade de climas ---------- */
+.climas { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
+
+/* `overflow: hidden` e seguro: o anel e `inset` e desenha por dentro. Sem
+   ele o canto quadrado da imagem escapava do raio de 10px. */
+.cli { position: relative; overflow: hidden; cursor: pointer;
+       height: 50px; border-radius: 10px; padding: 6px 2px;
+       background: var(--surf-0) center / cover no-repeat;
+       display: flex; flex-direction: column;
+       align-items: center; justify-content: center; gap: 4px; }
+
+/* Com imagem, o nome desce pro pe da celula. */
+.cli.comImg { justify-content: flex-end; padding: 0 2px 4px; }
+
+/* VEU: o conjunto vai de quase branco a quase preto e nenhuma cor de texto
+   serve pros dois. O `background-color` e o recuo do nao escolhido e mora
+   AQUI, nao num `filter` do .cli: filter pega no subtree e escurecia o
+   rotulo junto, derrubando o contraste do "Sol forte" pra ~4.4:1. */
+.cli.comImg::before {
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  background-color: rgba(8,6,12,.42);
+  background-image: linear-gradient(to top,
+              rgba(8,6,12,.94) 0%, rgba(8,6,12,.62) 34%, rgba(8,6,12,0) 72%);
+  transition: background-color .14s;
+}
+.cli.comImg:hover::before { background-color: rgba(8,6,12,.18); }
+.cli.comImg.on::before    { background-color: transparent; }
+
+/* ANEL em ::after pra ficar ACIMA do veu — como `box-shadow` do proprio
+   .cli ele seria pintado embaixo, e o degrade comia o roxo no pe. */
+.cli::after {
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  border-radius: inherit; box-shadow: inset 0 0 0 1px var(--line);
+  transition: box-shadow .14s;
+}
+.cli:hover::after { box-shadow: inset 0 0 0 1px var(--line-lit); }
+.cli.on::after    { box-shadow: inset 0 0 0 2px var(--brand-lit); }
+
+.cli svg { width: 21px; height: 21px; color: var(--ink-2); }
+.cli.on svg { color: var(--brand-lit); }
+
+.cli .n { position: relative; z-index: 1;
+          font-size: 8px; font-weight: 700; letter-spacing: .03em;
+          color: var(--ink-2); text-align: center; line-height: 1.2;
+          text-shadow: 0 1px 2px rgba(0,0,0,.9); }
+.cli.on .n { color: #fff; }
+
+/* ---------- fichas do sorteio ----------
+   GRADE de 5 e nao `flex-wrap`: solto, a ultima linha ficava com uma ficha
+   sozinha. Cinco colunas fecham os 15 em 3 linhas exatas. 8px porque em 9px
+   o "Tempestade" saia com reticencias. */
+.fichas { display: grid; grid-template-columns: repeat(5, 1fr); gap: 5px; }
+.fi { font-size: 8px; font-weight: 700; letter-spacing: .02em;
+      padding: 5px 3px; border-radius: 7px; cursor: pointer;
+      text-align: center; white-space: nowrap;
+      overflow: hidden; text-overflow: ellipsis;
+      color: var(--ink-3); background: var(--surf-0);
+      box-shadow: inset 0 0 0 1px var(--line);
+      transition: color .14s, background .14s, box-shadow .14s; }
+.fi:hover { color: var(--ink-2); }
+.fi.on { color: var(--ink); background: rgba(176,111,208,.16);
+         box-shadow: inset 0 0 0 1px var(--brand-lit); }
+
+/* ---------- toggle ---------- */
+.sw { display: flex; align-items: center; justify-content: space-between; gap: 10px;
+      cursor: pointer; }
+.sw .nome { font-size: 12px; font-weight: 600; color: var(--ink-2); }
+.sw .cx { width: 34px; height: 19px; border-radius: 10px; flex-shrink: 0;
+          background: rgba(255,255,255,.1); position: relative;
+          transition: background .16s;
+          box-shadow: inset 0 0 0 1px var(--line); }
+.sw .cx::after { content: ""; position: absolute; top: 3px; left: 3px;
+                 width: 13px; height: 13px; border-radius: 50%;
+                 background: var(--ink-3); transition: left .16s, background .16s; }
+.sw.on .cx { background: linear-gradient(150deg, var(--brand), var(--brand-deep)); }
+.sw.on .cx::after { left: 18px; background: #fff; }
+/* Apagao e o unico destrutivo do painel: veste vermelho, nao roxo. */
+.sw.perigo.on .cx { background: linear-gradient(150deg, #a33, #722); }
+.sw.filho { padding-left: 12px; box-shadow: inset 2px 0 0 var(--line); }
+
+/* ---------- faixa do padrao ----------
+   Atravessa as duas colunas de proposito: "padrao" e hora E clima juntos,
+   nao cabe em nenhuma das duas.
+
+   `flex-start` e nao `center`: os tres grupos tem alturas diferentes (texto,
+   botao, segmentado), e centralizando os TITULOS saem desalinhados entre si
+   — que e justamente o que o olho le primeiro nessa faixa. */
+.faixa { padding: 11px 16px; border-top: 1px solid var(--line);
+         display: flex; align-items: flex-start; gap: 16px; flex-wrap: wrap; }
+/* `align-items: flex-start` no grupo: sem ele o padrao do flex-column e
+   `stretch`, e o segmentado esticava ate a largura do grupo — sobrava um vao
+   escuro dentro da caixa, depois do "Manter o que estava". */
+.faixa .grupo { display: flex; flex-direction: column; gap: 5px;
+                align-items: flex-start; }
+.pad-val { font-size: 14px; font-weight: 800; font-variant-numeric: tabular-nums;
+           color: var(--ink); }
+.pad-val .sep { color: var(--ink-3); font-weight: 600; margin: 0 5px; }
+
+/* O `padding: 2px` da o respiro pra pilula marcada nao encostar na borda:
+   encostada, as quinas da moldura roxa eram cortadas pelo raio do container
+   e ela nao fechava nas pontas. Por isso tambem nao ha `overflow: hidden`. */
+.seg { display: flex; gap: 2px; padding: 2px; border-radius: 11px;
+       box-shadow: inset 0 0 0 1px var(--line); }
+.seg .op { padding: 6px 10px; border-radius: 9px; cursor: pointer; white-space: nowrap;
+           font-size: 10px; font-weight: 700; color: var(--ink-3);
+           transition: color .14s, background .14s; }
+.seg .op:hover { color: var(--ink-2); }
+.seg .op.on { color: var(--ink); background: rgba(176,111,208,.16);
+              box-shadow: inset 0 0 0 1px var(--brand-lit); }
+
+.bt.mini { padding: 7px 11px; font-size: 9px; }
+
+/* Botao de ACAO: tudo o mais espera o "Aplicar", este cai na hora. O
+   `:active` que afunda e o unico retorno — o efeito esta no ceu. */
+.bt.acao {
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  background: linear-gradient(150deg, rgba(176,111,208,.22), rgba(176,111,208,.06));
+  box-shadow: inset 0 0 0 1px var(--brand-lit);
+  border-color: transparent; color: var(--ink);
+}
+.bt.acao svg { width: 12px; height: 12px; }
+.bt.acao:hover { filter: brightness(1.25); color: var(--ink); }
+.bt.acao:active { filter: brightness(.85); }
+
+/* ---------- rodape ---------- */
+.rodape { padding: 10px 16px 13px; border-top: 1px solid var(--line);
+          display: flex; gap: 7px; align-items: center; }
+.rodape .aviso { flex: 1; font-size: 10px; color: var(--ink-3); }
+.rodape .aviso.alerta { color: var(--alerta); }
+.bt { padding: 9px 16px; border-radius: 11px; cursor: pointer;
+      font-size: 10px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase;
+      text-align: center;
+      transition: border-color .14s, color .14s, filter .14s;
+      border: 1px solid var(--line); background: var(--surf-0); color: var(--ink-2); }
+.bt:hover { border-color: var(--line-lit); color: var(--ink); }
+.bt.mestre { background: linear-gradient(150deg, var(--brand), var(--brand-deep));
+             color: #fff; border-color: transparent; }
+.bt.mestre:hover { filter: brightness(1.18); }
